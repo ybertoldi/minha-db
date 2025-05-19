@@ -32,5 +32,4 @@
 
   MetaCommandResult do_meta_command(InputBuffer* );
   PrepareResult prepare_statement(InputBuffer* , Statement*);
-  void execute_statement(Statement*);
 #endif

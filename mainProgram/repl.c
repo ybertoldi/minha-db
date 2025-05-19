@@ -7,7 +7,9 @@
 #include "buffer.h"
 #include "parsing.h"
 
-#define size_of_attribute(Struct, Attribute) sizeof( ((Struct*)0)->Attribute )
+typedef enum { EXECUTE_TABLE_FULL, EXECUTE_SUCESS } ExecuteResult;
+
+#define size_of_attribute(Struct, Attribute) sizeof(((Struct *)0)->Attribute)
 const u_int32_t ID_SIZE = size_of_attribute(Row, id);
 const u_int32_t USERNAME_SIZE = size_of_attribute(Row, username);
 const u_int32_t EMAIL_SIZE = size_of_attribute(Row, email);
@@ -15,7 +17,6 @@ const u_int32_t ID_OFFSET = 0;
 const u_int32_t USERNAME_OFFSET = ID_OFFSET + ID_SIZE;
 const u_int32_t EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;
 const u_int32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
-
 
 const u_int32_t PAGE_SIZE = 4096;
 #define TABLE_MAX_PAGES 100
@@ -29,12 +30,14 @@ typedef struct {
 
 void print_prompt() { printf("db > "); }
 void deserialize_row(void *source, Row *destination);
+Table *new_table();
+ExecuteResult execute_statement(Statement *statement, Table *table);
 void *row_slot(Table *table, u_int32_t row_num);
-
 void serialize_row(Row *source, void *destination);
 
 int main() {
   InputBuffer *input_buffer = new_input_buffer();
+  Table *table = new_table();
   while (true) {
     print_prompt();
     read_input(input_buffer);
@@ -57,12 +60,19 @@ int main() {
       printf("unrecognized keyword at start of '%s' \n", input_buffer->buffer);
       continue;
     case (PREPARE_SYNTAX_ERROR):
-      printf("%s", statement.error_message);
       continue;
     }
 
-    execute_statement(&statement);
-    printf("Executed. \n");
+    switch (execute_statement(&statement, table)) {
+    case EXECUTE_TABLE_FULL:
+      printf("could not execute command, page is full");
+      break;
+    case EXECUTE_SUCESS:
+      printf("Executed. \n");
+      break;
+    default:
+      printf("unknown error at execution");
+    }
   }
 }
 
@@ -92,5 +102,47 @@ void *row_slot(Table *table, u_int32_t row_num) {
   return page + byte_offset;
 }
 
+ExecuteResult execute_insert(Statement *statement, Table *table) {
+  if (table->num_rows > TABLE_MAX_ROWS) {
+    return EXECUTE_TABLE_FULL;
+  }
+  Row *row_to_insert = &(statement->row_to_insert);
 
+  serialize_row(row_to_insert, row_slot(table, table->num_rows));
+  table->num_rows += 1;
 
+  return EXECUTE_SUCESS;
+}
+void print_row(Row *row) {
+  printf("id: %d | username: %s | email: %s\n", row->id, row->username,
+         row->email);
+}
+
+// TODO: ADD SELECTION OPTIONS
+ExecuteResult execute_select(Statement *statement, Table *table) {
+  Row row;
+  for (u_int32_t i = 0; i < table->num_rows; i++) {
+    deserialize_row(row_slot(table, i), &row);
+    print_row(&row);
+  }
+  return EXECUTE_SUCESS;
+}
+
+// TODO: ADD ARGUMENT TYPE VALIDATION
+ExecuteResult execute_statement(Statement *statement, Table *table) {
+  switch (statement->type) {
+  case STATEMENT_INSERT:
+    return execute_insert(statement, table);
+  case STATEMENT_SELECT:
+    return execute_select(statement, table);
+  }
+}
+
+Table *new_table() {
+  Table *table = (Table *)malloc(sizeof(Table));
+  table->num_rows = 0;
+  for (u_int32_t i = 0; i < TABLE_MAX_PAGES; i++) {
+    table->pages[i] = NULL;
+  }
+  return table;
+}

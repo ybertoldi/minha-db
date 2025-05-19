@@ -21,11 +21,6 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
         input_buffer->buffer, "insert %d %s %s", &(statement->row_to_insert.id),
         statement->row_to_insert.username, statement->row_to_insert.email);
     if (args_assigned < 3) {
-      char *err_msg = malloc(input_buffer->input_length + 50);
-      strcpy(err_msg, "invalid syntax for insertion at '");
-      strcat(err_msg, input_buffer->buffer);
-      strcat(err_msg, "'. 3 arguments are required.\n");
-      statement->error_message = err_msg;
       return PREPARE_SYNTAX_ERROR;
     }
     return PREPARE_SUCESS;
@@ -38,15 +33,3 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
   return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
-void execute_statement(Statement *statement) {
-  switch (statement->type) {
-  case STATEMENT_INSERT:
-    printf("TODO: inserting...\n");
-    break;
-
-  case STATEMENT_SELECT:
-    printf("TODO: selecting...\n");
-    break;
-  }
-  free(statement->error_message);
-}
