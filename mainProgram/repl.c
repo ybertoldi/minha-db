@@ -35,6 +35,7 @@ ExecuteResult execute_statement(Statement *statement, Table *table);
 void *row_slot(Table *table, u_int32_t row_num);
 void serialize_row(Row *source, void *destination);
 
+
 int main() {
   InputBuffer *input_buffer = new_input_buffer();
   Table *table = new_table();
@@ -61,6 +62,12 @@ int main() {
       continue;
     case (PREPARE_SYNTAX_ERROR):
       continue;
+    case (PREPARE_STRING_TOO_LONG):
+      printf("String is too long, value not accepted\n");
+      continue;
+    case (PREPARE_INVALID_ID):
+      printf("Invalid id, the value should be positive and belo INT_MAX\n");
+      continue;
     }
 
     switch (execute_statement(&statement, table)) {
@@ -75,6 +82,9 @@ int main() {
     }
   }
 }
+
+
+
 
 void serialize_row(Row *source, void *destination) {
   memcpy(destination + ID_OFFSET, &source->id, ID_SIZE);
