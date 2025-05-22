@@ -34,6 +34,5 @@ typedef enum {
   PREPARE_INVALID_ID
 } PrepareResult;
 
-MetaCommandResult do_meta_command(InputBuffer *);
 PrepareResult prepare_statement(InputBuffer *, Statement *);
 #endif
