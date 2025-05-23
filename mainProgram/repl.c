@@ -47,10 +47,8 @@ typedef struct {
 } Cursor;
 
 void print_prompt() { printf("db > "); }
-
 Table *db_open(const char *);
 ExecuteResult execute_statement(Statement *statement, Table *table);
-
 MetaCommandResult do_meta_command(InputBuffer *input_buffer, Table *table);
 
 int main() {
@@ -61,7 +59,7 @@ int main() {
     print_prompt();
     read_input(input_buffer);
 
-    // TRATAMENTO DE META COMANDOS
+    // META_COMMAND INTERPRETATION AND EXECUTION
     if (input_buffer->buffer[0] == '.') {
       switch (do_meta_command(input_buffer, table)) {
       case (META_COMMAND_SUCESS):
@@ -72,7 +70,7 @@ int main() {
       }
     }
 
-    // INTERPRETACAO DE
+    // STATEMENT INTERPRETATION
     Statement statement;
     switch (prepare_statement(input_buffer, &statement)) {
     case (PREPARE_SUCESS):
@@ -90,6 +88,7 @@ int main() {
       continue;
     }
 
+    // STATEMENT EXECUTION
     switch (execute_statement(&statement, table)) {
     case EXECUTE_TABLE_FULL:
       printf("could not execute command, page is full");
@@ -170,8 +169,6 @@ void pager_flush(Pager *pager, u_int32_t page_num, u_int32_t size) {
     exit(EXIT_FAILURE);
   }
 }
-//
-//
 
 Table *db_open(const char *filename) {
   Table *table = malloc(sizeof(Table));
@@ -221,8 +218,6 @@ void db_close(Table *table) {
   free(pager);
   free(table);
 }
-//
-//
 
 void serialize_row(Row *source, void *destination) {
   memcpy(destination + ID_OFFSET, &source->id, ID_SIZE);
@@ -237,7 +232,7 @@ void deserialize_row(void *source, Row *destination) {
 }
 
 // CURSOR
-Cursor *start_of_table(Table *table) {
+Cursor *cursor_start_of_table(Table *table) {
   Cursor *cursor = malloc(sizeof(Cursor));
   cursor->end_of_table = false;
   cursor->table = table;
@@ -245,7 +240,7 @@ Cursor *start_of_table(Table *table) {
   return cursor;
 }
 
-Cursor *end_of_table(Table *table) {
+Cursor *cursor_end_of_table(Table *table) {
   Cursor *cursor = malloc(sizeof(Cursor));
   cursor->end_of_table = true;
   cursor->table = table;
@@ -253,7 +248,7 @@ Cursor *end_of_table(Table *table) {
   return cursor;
 }
 
-void move_cursor(Cursor *cursor, int delta) {
+void cursor_move(Cursor *cursor, int delta) {
   int new_row = cursor->row_num + delta;
   if (new_row < 0) {
     printf("move_cursor: tried to move cursor to negative position\n");
@@ -275,9 +270,9 @@ void move_cursor(Cursor *cursor, int delta) {
   cursor->row_num = new_row;
 }
 
-void cursor_advance(Cursor *cursor) { move_cursor(cursor, 1); }
+void cursor_advance(Cursor *cursor) { cursor_move(cursor, 1); }
 
-void cursor_go_back(Cursor *cursor) { move_cursor(cursor, -1); }
+void cursor_go_back(Cursor *cursor) { cursor_move(cursor, -1); }
 
 void *cursor_value(Cursor *cursor) {
   u_int32_t row_num = cursor->row_num;
@@ -305,7 +300,7 @@ ExecuteResult execute_insert(Statement *statement, Table *table) {
     return EXECUTE_TABLE_FULL;
   }
   Row *row_to_insert = &(statement->row_to_insert);
-  Cursor *cursor = end_of_table(table);
+  Cursor *cursor = cursor_end_of_table(table);
 
   serialize_row(row_to_insert, cursor_value(cursor));
   table->num_rows += 1;
@@ -321,7 +316,7 @@ void print_row(Row *row) {
 // TODO: ADD SELECTION OPTIONS
 ExecuteResult execute_select(Table *table) {
   Row row;
-  Cursor *cursor = start_of_table(table);
+  Cursor *cursor = cursor_start_of_table(table);
   while (!(cursor->end_of_table)) {
     deserialize_row(cursor_value(cursor), &row);
     cursor_advance(cursor);
