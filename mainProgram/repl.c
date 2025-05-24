@@ -11,10 +11,12 @@
 #include "buffer.h"
 #include "parsing.h"
 
-#define DB_FILENAME "teste.db"
+#define DB_FILENAME "teste_Btree.db"
 
 typedef enum { EXECUTE_TABLE_FULL, EXECUTE_SUCESS } ExecuteResult;
+typedef enum { NODE_INTERNAL, NODE_LEAF } NodeType;
 
+// ROW CONSTANTS
 #define size_of_attribute(Struct, Attribute) sizeof(((Struct *)0)->Attribute)
 const u_int32_t ID_SIZE = size_of_attribute(Row, id);
 const u_int32_t USERNAME_SIZE = size_of_attribute(Row, username);
@@ -24,10 +26,41 @@ const u_int32_t USERNAME_OFFSET = ID_OFFSET + ID_SIZE;
 const u_int32_t EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;
 const u_int32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
+// PAGE AND TABLE CONSTANTS
 const u_int32_t PAGE_SIZE = 4096;
 #define TABLE_MAX_PAGES 100
 const u_int32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
 const u_int32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+//// NODE CONSTANTS FOR SERIALITAION ////
+// common node header
+const u_int32_t NODE_TYPE_SIZE = sizeof(u_int8_t);
+const u_int32_t NODE_TYPE_OFFSET = 0;
+const u_int32_t IS_ROOT_SIZE = sizeof(u_int8_t);
+const u_int32_t IS_ROOT_OFFSET = NODE_TYPE_SIZE;
+const u_int32_t PARENT_POINTER_SIZE = sizeof(u_int32_t);
+const u_int32_t PARENT_POINTER_OFFSET = IS_ROOT_OFFSET + IS_ROOT_SIZE;
+const u_int32_t COMMON_NODE_HEADER_SIZE =
+    NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE;
+
+// leaf node header (at start of each page)
+const u_int32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(u_int32_t);
+const u_int32_t LEAF_NODE_NUM_CELLS_OFFSET = COMMON_NODE_HEADER_SIZE; 
+const u_int32_t LEAF_NODE_HEADER_SIZE =
+    COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE;
+
+// leaf node body
+const u_int32_t LEAF_NODE_KEY_SIZE = sizeof(u_int32_t);
+const u_int32_t LEAF_NODE_KEY_OFFSET = 0;
+const u_int32_t LEAF_NODE_VALUE_SIZE = ROW_SIZE;
+const u_int32_t LEAF_NODE_VALUE_OFFSET =
+    LEAF_NODE_KEY_SIZE + LEAF_NODE_KEY_OFFSET;
+
+// leaf node cells
+const u_int32_t LEAF_NODE_CELL_SIZE = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE;
+const u_int32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_CELL_SIZE;
+const u_int32_t LEAF_NODE_MAX_CELLS =
+    LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
 
 typedef struct {
   int file_descriptor;
@@ -231,7 +264,27 @@ void deserialize_row(void *source, Row *destination) {
   memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
 
+// NODES
+u_int32_t *leaf_node_num_cells(void *node) {
+  return node + LEAF_NODE_NUM_CELLS_OFFSET;
+}
+
+void *leaf_node_cell(void *node, u_int32_t cell_num) { //start at 0
+  return node + LEAF_NODE_HEADER_SIZE + cell_num * LEAF_NODE_CELL_SIZE;
+}
+
+u_int32_t *leaf_node_key(void *node, u_int32_t cell_num) {
+  return leaf_node_cell(node, cell_num);
+}
+
+void *leaf_node_value(void *node, u_int32_t cell_num) {
+  return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
+}
+
+void initalize_leaf_node(void *node) { *(leaf_node_num_cells(node)) = 0; }
+
 // CURSOR
+// TODO: ADAPT CURSOR TO BTREE NAVIGATION
 Cursor *cursor_start_of_table(Table *table) {
   Cursor *cursor = malloc(sizeof(Cursor));
   cursor->end_of_table = false;
@@ -337,3 +390,11 @@ ExecuteResult execute_statement(Statement *statement, Table *table) {
   }
   printf("Execute_Statement: unkown error\n");
 }
+
+
+
+
+//TODO: SALVAR ARQUIVO COM BTREE
+//TODO: LER ARQUIVO COM BTREE
+//TODO: MIGRAR OS DADOS EM TESTE.DB PARA BTREE
+//TODO: 
